@@ -12,8 +12,8 @@
     "client_port": 4001,
     "client_metrics_port": 7001,
     "camera_index": 0,
-    "max_udp_payload": 1300,
-    "jpeg_quality": 70,
+    "max_udp_payload": 1400,
+    "jpeg_quality": 50,
     "fps_limit": 0
   }
 }
