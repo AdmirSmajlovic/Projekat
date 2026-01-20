@@ -105,6 +105,7 @@ def udp_video_receiver_loop(cfg: WebClientConfig, stop_event: threading.Event):
     global latest_jpeg, last_frame_time, expected_next_frame_id
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
     try:
         sock.bind((cfg.listen_ip, cfg.listen_port))
     except OSError as e:
@@ -138,6 +139,13 @@ def udp_video_receiver_loop(cfg: WebClientConfig, stop_event: threading.Event):
             total = header["total_fragments"]
 
             now_ms = int(time.time() * 1000)
+            # purge nepotpunih frame-ova da se buffer ne gomila (npr. > 300ms)
+            stale_before = now_ms - 300
+            for old_fid in list(frames_buffer.keys()):
+            # Heuristika: ako je fid "previše iza" očekivanog, odbaci
+                if expected_next_frame_id is not None and old_fid < expected_next_frame_id - 5:
+                    del frames_buffer[old_fid]
+
 
             # Procjena izgubljenih frame-ova
             if expected_next_frame_id is None:
@@ -239,12 +247,12 @@ def gen_mjpeg():
     global latest_jpeg
     while True:
         if latest_jpeg is None:
-            time.sleep(0.03)
+            time.sleep(0.005)
             continue
         frame = latest_jpeg
         yield (b"--frame\r\n"
                b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
-        time.sleep(0.03)
+        time.sleep(0.005)
 
 
 @app.route("/")
