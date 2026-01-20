@@ -41,6 +41,7 @@ def main():
 
     # Metrike servera
     frame_id = 0
+    last_frame_id = 0
     bytes_sent = 0
     packets_sent = 0
     last_stats_t = time.time()
@@ -95,8 +96,10 @@ def main():
         # server FPS (broj frejmova u sekundi)
         now = time.time()
         if now - last_stats_t >= 1.0:
-            server_fps = frame_id / (now - last_stats_t)  # aproksimacija od starta 
+            server_fps = (frame_id - last_frame_id) / (now - last_stats_t)
+            last_frame_id = frame_id
             last_stats_t = now
+
 
         # bitrate (računanje se vrši svake sekunde)
         if now - last_bitrate_calc_t >= 1.0:
