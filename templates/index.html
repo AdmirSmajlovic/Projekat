@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>UDP Video Web Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #eee; margin: 0; }
+        header { padding: 16px 20px; border-bottom: 1px solid #222; display:flex; justify-content:space-between; align-items:center; }
+        a { color: #7db7ff; text-decoration: none; }
+        .container { padding: 20px; display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
+        .card { background: #1a1a1a; border: 1px solid #222; border-radius: 10px; padding: 14px; }
+        img { width: 100%; border-radius: 10px; background: #000; }
+        .muted { color:#aaa; font-size: 12px; }
+        .section-title { font-weight:700; margin: 0 0 10px 0; }
+        .kpi { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .kpi .tile { background:#151515; border:1px solid #222; border-radius:10px; padding:10px; }
+        .kpi .v { font-size: 18px; font-weight: 700; }
+        .kpi .l { color:#aaa; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        td { padding: 8px 6px; border-top: 1px solid #222; }
+        td.key { color:#bbb; width: 60%; }
+        td.val { text-align: right; font-variant-numeric: tabular-nums; }
+        .btn { padding:6px 12px; border-radius:8px; border:1px solid #333; background:#161616; color:#eee; cursor:pointer; }
+            .btn:hover { filter: brightness(1.08); }
+            .btn.danger { border-color:#833; }
+            .btn.primary { border-color:#2b5; }
+
+            .btn.danger:hover { filter: brightness(1.12); }
+
+    </style>
+</head>
+<body>
+    <!-- Naziv aplikacije + dugmad -->
+    <header>
+        <div>
+            <div style="font-size:18px;font-weight:700;">UDP Video Web Client</div>
+            <div class="muted"><button onclick="window.location.href='/settings'" style="padding:6px 12px;border-radius:8px;border:1px solid #333;background:#161616;color:#eee;cursor:pointer;"></button></div>
+        </div>
+        <div class="muted" style="display:flex; gap:10px; align-items:center;"><button onclick="window.location.href='/settings'" class="btn">Settings</button><button onclick="shutdown()" class="btn danger">Ugasi program</button></div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <!-- MJPEG stream: Flask ruta koja vraća video multipart JPEG frameove -->
+            <img id="video" src="/video" alt="video" />
+            <div class="muted" style="margin-top:8px;">
+                Ako nema slike, provjeri da li udp_server šalje na ispravan IP/port i da li su receiver-i pokrenuti.
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Klijent metrike</div>
+
+            <div class="kpi">
+                <div class="tile"><div class="v" id="c_last_fps">-</div><div class="l">Last FPS</div></div>
+                <div class="tile"><div class="v" id="c_avg_fps">-</div><div class="l">Avg FPS</div></div>
+                <div class="tile"><div class="v" id="c_last_delay">-</div><div class="l">Last Delay (ms)</div></div>
+                <div class="tile"><div class="v" id="c_avg_delay">-</div><div class="l">Avg Delay (ms)</div></div>
+            </div>
+
+            <div class="kpi kpi-wide" style="margin-top:12px;">
+    <div class="tile"><div class="v" id="c_packets">-</div><div class="l">Primljeni paketi</div></div>
+    <div class="tile"><div class="v" id="c_bytes">-</div><div class="l">Primljeni bajtovi</div></div>
+    <div class="tile"><div class="v" id="c_frames">-</div><div class="l">Dekodirani frejmovi</div></div>
+</div>
+
+            <div style="height:14px;"></div>
+
+            <div class="section-title">Server metrike</div>
+            <div class="kpi">
+                <div class="tile"><div class="v" id="s_fps">-</div><div class="l">Server FPS</div></div>
+                <div class="tile"><div class="v" id="s_bitrate">-</div><div class="l">Bitrate (kbps)</div></div>
+                <div class="tile"><div class="v" id="s_packets">-</div><div class="l">Paketi poslani</div></div>
+                <div class="tile"><div class="v" id="s_bytes">-</div><div class="l">Bajtovi poslani</div></div>
+            </div>
+            <div class="kpi kpi-wide" style="margin-top:12px;"><div class="tile"><div class="v" id="s_ts">-</div><div class="l">Timestamp</div></div></div>
+        </div>
+    </div>
+
+    <script>
+        // Funkcije za formatiranje brojeva u UI 
+        function fmtNum(x) {
+            if (x === null || x === undefined) return "-";
+            try { return Number(x).toLocaleString(); } catch { return String(x); }
+        }
+        function fmtFloat(x, d=2) {
+            if (x === null || x === undefined) return "-";
+            const n = Number(x);
+            if (Number.isNaN(n)) return String(x);
+            return n.toFixed(d);
+        }
+
+                
+// Dugme 'Ugasi program' poziva /shutdown (POST) da ugasi web_client proces (i udp_server ako run_all radi).
+        async function shutdown() {
+
+    const ok = confirm("Da li želite isključiti web_client program?");
+    if (!ok) return;
+    try {
+        await fetch("/shutdown", { method: "POST" });
+    } catch (e) {
+    }
+}
+
+// Svake sekunde se povlači /metrics i popunjava DOM elemente.
+        async function refreshMetrics() {
+
+            try {
+                const r = await fetch("/metrics");
+                const data = await r.json();
+
+                const c = data.client || {};
+                document.getElementById("c_last_fps").textContent   = fmtFloat(c.last_fps, 2);
+                document.getElementById("c_avg_fps").textContent    = fmtFloat(c.avg_fps, 2);
+                document.getElementById("c_last_delay").textContent = fmtNum(c.last_delay_ms);
+                document.getElementById("c_avg_delay").textContent  = fmtNum(c.avg_delay_ms);
+
+                document.getElementById("c_packets").textContent    = fmtNum(c.packets_received);
+                document.getElementById("c_bytes").textContent      = fmtNum(c.bytes_received);
+                document.getElementById("c_frames").textContent     = fmtNum(c.frames_decoded);
+
+                const s = data.server || {};
+                document.getElementById("s_fps").textContent     = fmtNum(s.server_fps);
+                document.getElementById("s_bitrate").textContent = fmtNum(s.server_bitrate_kbps);
+                document.getElementById("s_packets").textContent = fmtNum(s.server_packets_sent);
+                document.getElementById("s_bytes").textContent   = fmtNum(s.server_bytes_sent);
+
+                const ts = s.timestamp_ms ? new Date(Number(s.timestamp_ms)).toLocaleString() : "-";
+                document.getElementById("s_ts").textContent = ts;
+            } catch (e) {
+            }
+        }
+
+        // Svake sekunde (1000 ms) se osvježavaju metrike
+        setInterval(refreshMetrics, 1000);
+
+        // Prvi poziv odmah nakon učitavanja stranice.
+        refreshMetrics();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Postavke - UDP Video Web Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #eee; margin: 0; }
+        header { padding: 16px 20px; border-bottom: 1px solid #222; display:flex; justify-content:space-between; align-items:center; }
+        a { color: #7db7ff; text-decoration: none; }
+        .container { padding: 20px; max-width: 980px; margin: 0 auto; }
+        .card { background: #1a1a1a; border: 1px solid #222; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+        label { display:block; margin-top: 10px; color:#bbb; font-size: 13px; }
+        input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #0f0f0f; color: #eee; margin-top: 6px; }
+        .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btns { display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
+        button { padding: 10px 12px; border-radius: 8px; border: 1px solid #333; background:#161616; color:#eee; cursor:pointer; }
+        button.primary { border-color:#2b5; }
+        .msg { padding: 10px 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 10px; }
+        .success { border-color:#2b5; }
+        .error { border-color:#b52; }
+        .muted { color:#aaa; font-size: 12px; }
+        .checkbox { display:flex; align-items:center; gap:8px; margin-top: 12px; }
+        .checkbox input { width:auto; }
+        code, pre { background:#222; padding:2px 6px; border-radius:6px; }
+        pre { padding: 10px; overflow:auto; }
+        .divider { height:1px; background:#222; margin: 14px 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <div style="font-size:18px;font-weight:700;">Postavke</div>
+            <div class="muted">Nazad na prikaz: <a href="/">/</a></div>
+        </div>
+        <div class="muted">Konfiguracija: <code>config.json</code></div>
+    </header>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="msg {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <div style="font-weight:700;margin-bottom:8px;">UDP receiver postavke (web_client)</div>
+
+            <!-- Ova forma šalje POST /settings te backend snima config.json -->
+                <form method="post">
+                <div class="row">
+                    <div>
+                        <label>LISTEN IP (na kojem web_client sluša UDP)</label>
+                        <input name="listen_ip" value="{{ wc.listen_ip }}" placeholder="npr. 0.0.0.0 ili 192.168.1.10" />
+                        <div class="muted">Za slušanje na svim interfejsima koristi <code>0.0.0.0</code>.</div>
+                    </div>
+                    <div>
+                        <label>VIDEO PORT</label>
+                        <input name="listen_port" value="{{ wc.listen_port }}" />
+                        <div class="muted">Mora biti isto kao <code>client_port</code> na udp_server-u.</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div>
+                        <label>METRICS PORT</label>
+                        <input name="metrics_listen_port" value="{{ wc.metrics_listen_port }}" />
+                        <div class="muted">Mora biti isto kao <code>client_metrics_port</code> na udp_server-u.</div>
+                    </div>
+                    <div>
+                        <label>AUTO START receiver-a</label>
+                        <div class="checkbox">
+                            <input type="checkbox" name="auto_start_receivers" {% if wc.auto_start_receivers %}checked{% endif %} />
+                            <div class="muted">Ako je uključeno, receiver-i se pokreću automatski pri startu web_client-a.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div style="font-weight:700;margin-bottom:8px;">Web server postavke (za pristup UI)</div>
+
+                <div class="row">
+                    <div>
+                        <label>WEB HOST</label>
+                        <input name="web_host" value="{{ wc.web_host }}" />
+                        <div class="muted">Uobičajeno: <code>0.0.0.0</code> (pristup preko IP adrese računara).</div>
+                    </div>
+                    <div>
+                        <label>WEB PORT</label>
+                        <input name="web_port" value="{{ wc.web_port }}" />
+                        <div class="muted">Ako promijeniš web port/host, potrebno je restartovati <code>web_client.py</code> proces.</div>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div style="font-weight:700;margin-bottom:8px;">udp_server postavke (snimaju se u config.json)</div>
+                <div class="muted">UI ne može pokrenuti server na drugom računaru; ovdje samo podešavaš vrijednosti i dobiješ gotovu komandu za kopiranje.</div>
+
+                <div class="row">
+                    <div>
+                        <label>CLIENT IP (gdje server šalje)</label>
+                        <input name="client_ip" value="{{ us.client_ip }}" placeholder="npr. 192.168.1.10" />
+                    </div>
+                    <div>
+                        <label>CLIENT PORT (video)</label>
+                        <input name="client_port" value="{{ us.client_port }}" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div>
+                        <label>CLIENT METRICS PORT</label>
+                        <input name="client_metrics_port" value="{{ us.client_metrics_port }}" />
+                    </div>
+                    <div>
+                        <label>CAMERA INDEX</label>
+                        <input name="camera_index" value="{{ us.camera_index }}" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div>
+                        <label>MAX UDP PAYLOAD</label>
+                        <input name="max_udp_payload" value="{{ us.max_udp_payload }}" />
+                    </div>
+                    <div>
+                        <label>JPEG QUALITY (0-100)</label>
+                        <input name="jpeg_quality" value="{{ us.jpeg_quality }}" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div>
+                        <label>FPS LIMIT (0 = bez limita)</label>
+                        <input name="fps_limit" value="{{ us.fps_limit }}" />
+                    </div>
+                    <div></div>
+                </div>
+
+                <div class="btns">
+                    <button class="primary" type="submit">Sačuvaj postavke</button>
+                    <button type="button" onclick="window.location.href='/'">Nazad</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div style="font-weight:700;margin-bottom:8px;">Kontrola receiver-a (web_client)</div>
+            <div class="muted">Ovo pokreće/zaustavlja UDP receiver niti bez editovanja koda.</div>
+
+            <div class="btns">
+                <form method="post" action="/control/start"><button type="submit">Start</button></form>
+                <form method="post" action="/control/stop"><button type="submit">Stop</button></form>
+                <form method="post" action="/control/restart"><button type="submit">Restart</button></form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="font-weight:700;margin-bottom:8px;">Komanda za pokretanje udp_server (kopiraj/zalijepi)</div>
+            <pre id="cmd">{{ us_cmd }}</pre>
+            <div class="btns">
+                <button type="button" onclick="copyCmd()">Kopiraj komandu</button>
+            </div>
+            <div class="muted">Ako pokrećeš na Windowsu i koristiš <code>py</code>, promijeni početak u <code>py udp_server.py ...</code>.</div>
+        </div>
+    </div>
+
+    <script>
+        function copyCmd() {
+            const t = document.getElementById("cmd").textContent;
+            navigator.clipboard.writeText(t);
+        }
+    </script>
+</body>
+</html>
